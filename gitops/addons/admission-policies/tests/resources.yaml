@@ -1,0 +1,101 @@
+# Fixtures for `kyverno test`. Namespace must be security-validation.
+# verifyImages (Cosign) is proven live, not in this offline suite.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: deny-latest
+  namespace: security-validation
+  labels:
+    app.kubernetes.io/name: admission-test
+spec:
+  containers:
+    - name: app
+      image: 111111111111.dkr.ecr.us-east-1.amazonaws.com/platform/admission-test:latest
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: deny-mutable-tag
+  namespace: security-validation
+  labels:
+    app.kubernetes.io/name: admission-test
+spec:
+  containers:
+    - name: app
+      image: 111111111111.dkr.ecr.us-east-1.amazonaws.com/platform/admission-test:sha-10d-unsigned-b
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: deny-unapproved-registry
+  namespace: security-validation
+  labels:
+    app.kubernetes.io/name: admission-test
+spec:
+  containers:
+    - name: app
+      image: docker.io/library/busybox@sha256:c230832bd3b0be59a6a47c729ee0944f07c64883ca2dd818486fb70f86ed00b6
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: deny-privileged
+  namespace: security-validation
+  labels:
+    app.kubernetes.io/name: admission-test
+spec:
+  containers:
+    - name: app
+      image: 111111111111.dkr.ecr.us-east-1.amazonaws.com/platform/admission-test@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      securityContext:
+        privileged: true
+        allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: deny-hostpath
+  namespace: security-validation
+  labels:
+    app.kubernetes.io/name: admission-test
+spec:
+  containers:
+    - name: app
+      image: 111111111111.dkr.ecr.us-east-1.amazonaws.com/platform/admission-test@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      securityContext:
+        allowPrivilegeEscalation: false
+  volumes:
+    - name: host
+      hostPath:
+        path: /etc
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pass-digest-registry
+  namespace: security-validation
+  labels:
+    app.kubernetes.io/name: admission-test
+spec:
+  hostNetwork: false
+  hostPID: false
+  hostIPC: false
+  containers:
+    - name: app
+      image: 111111111111.dkr.ecr.us-east-1.amazonaws.com/platform/admission-test@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      securityContext:
+        privileged: false
+        allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deny-lb
+  namespace: security-validation
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app.kubernetes.io/name: admission-test

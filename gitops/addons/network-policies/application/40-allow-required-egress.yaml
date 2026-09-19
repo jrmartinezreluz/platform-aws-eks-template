@@ -1,0 +1,25 @@
+# Optional HTTPS to VPC CIDRs / endpoints. Standard NP cannot match STS/SM FQDNs.
+# Enable only when the app needs AWS APIs. Replace cidr with the workload VPC.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: 40-allow-required-egress
+  labels:
+    platform.policy: allow-aws-egress
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.10.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 10.20.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443

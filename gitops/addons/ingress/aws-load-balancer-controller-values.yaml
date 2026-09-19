@@ -1,0 +1,8 @@
+# Optional. Design-only. Not required if Traefik Service type LoadBalancer is enough.
+clusterName: eks-nonprod
+region: us-east-1
+vpcId: vpc-REPLACE
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller
+# Identity via EKS Pod Identity (preferred). IRSA only as exception.

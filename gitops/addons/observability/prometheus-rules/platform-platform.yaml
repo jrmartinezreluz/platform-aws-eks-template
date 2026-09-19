@@ -1,0 +1,286 @@
+# Git-managed platform rules. Label release=kube-prometheus-stack is required
+# by the live Prometheus CR selector. Do not delete upstream kube-prometheus rules.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platform-platform
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    platform.example/owner: platform
+    platform.example/phase: "10C"
+spec:
+  groups:
+    - name: platform.slo.recording
+      interval: 30s
+      rules:
+        - record: slo:node_ready:ratio
+          expr: |
+            sum(kube_node_status_condition{condition="Ready",status="true"})
+            /
+            sum(kube_node_status_condition{condition="Ready",status="true"}
+                or kube_node_status_condition{condition="Ready",status="false"}
+                or kube_node_status_condition{condition="Ready",status="unknown"})
+        - record: slo:node_ready:ratio_6h
+          expr: avg_over_time(slo:node_ready:ratio[6h])
+        - record: slo:node_ready:ratio_1d
+          expr: avg_over_time(slo:node_ready:ratio[1d])
+        - record: slo:node_ready:ratio_7d
+          expr: avg_over_time(slo:node_ready:ratio[7d])
+        - record: slo:apiserver_success:ratio_6h
+          expr: |
+            sum(rate(apiserver_request_total{code!~"5..",verb!~"WATCH|CONNECT"}[6h]))
+            /
+            sum(rate(apiserver_request_total{verb!~"WATCH|CONNECT"}[6h]))
+        - record: slo:apiserver_success:ratio_1d
+          expr: |
+            sum(rate(apiserver_request_total{code!~"5..",verb!~"WATCH|CONNECT"}[1d]))
+            /
+            sum(rate(apiserver_request_total{verb!~"WATCH|CONNECT"}[1d]))
+        - record: slo:apiserver_success:ratio_7d
+          expr: |
+            sum(rate(apiserver_request_total{code!~"5..",verb!~"WATCH|CONNECT"}[7d]))
+            /
+            sum(rate(apiserver_request_total{verb!~"WATCH|CONNECT"}[7d]))
+        - record: slo:deployment_available:ratio
+          expr: |
+            sum(kube_deployment_status_replicas_available)
+            /
+            clamp_min(sum(kube_deployment_spec_replicas), 1)
+        - record: slo:traefik_success:ratio_6h
+          expr: |
+            sum(rate(traefik_service_requests_total{code!~"5.."}[6h]))
+            /
+            clamp_min(sum(rate(traefik_service_requests_total[6h])), 1e-9)
+        - record: slo:traefik_success:ratio_1d
+          expr: |
+            sum(rate(traefik_service_requests_total{code!~"5.."}[1d]))
+            /
+            clamp_min(sum(rate(traefik_service_requests_total[1d])), 1e-9)
+        - record: slo:traefik_success:ratio_7d
+          expr: |
+            sum(rate(traefik_service_requests_total{code!~"5.."}[7d]))
+            /
+            clamp_min(sum(rate(traefik_service_requests_total[7d])), 1e-9)
+
+    - name: platform.slo.alerts
+      rules:
+        - alert: PlatformNodeReadyBudgetBurn
+          expr: slo:node_ready:ratio_6h < 0.995
+          for: 15m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: Node Ready error budget burning (6h window)
+            description: 6h Ready ratio {{ $value | humanizePercentage }} is below the 99.5% operational SLO. 28d SLOs are not computed (retention 7d, decision A).
+            runbook: docs/phase10/runbooks/node-not-ready.md
+        - alert: PlatformAPIServerBudgetBurn
+          expr: slo:apiserver_success:ratio_6h < 0.995
+          for: 15m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: API server success ratio below 99.5% over 6h
+            description: 6h apiserver non-5xx ratio {{ $value | humanizePercentage }}.
+            runbook: docs/phase10/runbooks/deployment-unavailable.md
+        - alert: PlatformTraefikErrorBudgetBurn
+          expr: |
+            (sum(rate(traefik_service_requests_total[6h])) > 0)
+            and
+            (slo:traefik_success:ratio_6h < 0.995)
+          for: 20m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: Traefik HTTP success below 99.5% over 6h
+            description: Ingress success ratio {{ $value | humanizePercentage }}. 4xx is not treated as platform failure in this SLO (5xx only).
+            runbook: docs/phase10/runbooks/traefik-errors.md
+
+    - name: platform.workloads
+      rules:
+        - alert: PlatformPodOOMKilled
+          expr: |
+            increase(kube_pod_container_status_restarts_total[30m]) > 2
+            and on (namespace, pod, container)
+            kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
+          for: 10m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: Container OOMKilled repeatedly ({{ $labels.namespace }}/{{ $labels.pod }})
+            description: Restarts with last reason OOMKilled.
+            runbook: docs/phase10/runbooks/pod-crashloop.md
+        - alert: PlatformPodPendingTooLong
+          expr: |
+            kube_pod_status_phase{phase="Pending"} == 1
+          for: 20m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: Pod stuck Pending ({{ $labels.namespace }}/{{ $labels.pod }})
+            description: Pending for 20m. Check scheduling, PVC, NetworkPolicy, PSS.
+            runbook: docs/phase10/runbooks/deployment-unavailable.md
+        - alert: PlatformPlatformDeploymentUnavailable
+          expr: |
+            (
+              kube_deployment_status_replicas_unavailable{namespace=~"argocd|cert-manager|external-secrets|monitoring|traefik|kube-system"} > 0
+            )
+          for: 15m
+          labels:
+            severity: page
+            team: platform
+          annotations:
+            summary: Platform Deployment unavailable ({{ $labels.namespace }}/{{ $labels.deployment }})
+            description: Unavailable replicas {{ $value }} for 15m.
+            runbook: docs/phase10/runbooks/deployment-unavailable.md
+
+    - name: platform.storage
+      rules:
+        - alert: PlatformPVCPending
+          expr: kube_persistentvolumeclaim_status_phase{phase="Pending"} == 1
+          for: 15m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: PVC Pending ({{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }})
+            description: Volume not bound for 15m.
+            runbook: docs/phase10/runbooks/prometheus-storage.md
+        - alert: PlatformPrometheusMemoryPressure
+          expr: |
+            process_resident_memory_bytes{job="kube-prometheus-stack-prometheus",container="prometheus"} > 1.2e9
+          for: 20m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: Prometheus RSS above 1.2Gi (request is 1Gi, emptyDir TSDB)
+            description: Resident memory {{ $value | humanize1024 }}B. Risk of OOM and loss of 7d TSDB on restart.
+            runbook: docs/phase10/runbooks/prometheus-storage.md
+
+    - name: platform.certs
+      rules:
+        - alert: PlatformCertificateExpiringSoon
+          expr: |
+            (certmanager_certificate_expiration_timestamp_seconds - time()) / 86400 < 21
+            and
+            (certmanager_certificate_expiration_timestamp_seconds - time()) / 86400 > 7
+          for: 1h
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: Certificate {{ $labels.name }} expires in under 21 days
+            description: Days remaining {{ $value }}.
+            runbook: docs/phase10/runbooks/certificate-expiry.md
+        - alert: PlatformCertificateExpiringCritical
+          expr: (certmanager_certificate_expiration_timestamp_seconds - time()) / 86400 < 7
+          for: 15m
+          labels:
+            severity: page
+            team: platform
+          annotations:
+            summary: Certificate {{ $labels.name }} expires in under 7 days
+            description: Days remaining {{ $value }}.
+            runbook: docs/phase10/runbooks/certificate-expiry.md
+        - alert: PlatformCertificateNotReady
+          expr: certmanager_certificate_ready_status{condition="True"} == 0
+          for: 30m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: cert-manager Certificate not Ready
+            description: "{{ $labels.namespace }}/{{ $labels.name }}"
+            runbook: docs/phase10/runbooks/certificate-expiry.md
+
+    - name: platform.traefik
+      rules:
+        - alert: PlatformTraefikHigh5xx
+          expr: |
+            (
+              sum(rate(traefik_service_requests_total{code=~"5.."}[5m]))
+              /
+              clamp_min(sum(rate(traefik_service_requests_total[5m])), 1e-9)
+            ) > 0.05
+            and
+            sum(rate(traefik_service_requests_total[5m])) > 0.1
+          for: 10m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: Traefik 5xx ratio above 5% with traffic
+            description: Current 5xx ratio {{ $value | humanizePercentage }}.
+            runbook: docs/phase10/runbooks/traefik-errors.md
+        - alert: PlatformTraefikDown
+          expr: up{job="traefik"} == 0
+          for: 5m
+          labels:
+            severity: page
+            team: platform
+          annotations:
+            summary: Traefik metrics scrape failed
+            description: Traefik Prometheus target down.
+            runbook: docs/phase10/runbooks/traefik-errors.md
+
+    - name: platform.eso
+      rules:
+        - alert: PlatformESOControllerDown
+          expr: |
+            kube_deployment_status_replicas_available{namespace="external-secrets",deployment="external-secrets"} < 1
+          for: 10m
+          labels:
+            severity: page
+            team: platform
+          annotations:
+            summary: External Secrets controller unavailable
+            description: Available replicas {{ $value }}.
+            runbook: docs/phase10/runbooks/deployment-unavailable.md
+        - alert: PlatformESOReconcileErrors
+          expr: increase(controller_runtime_reconcile_errors_total{namespace="external-secrets"}[15m]) > 5
+          for: 20m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: External Secrets reconcile errors
+            description: Error increase {{ $value }} over 15m. Do not log secret values.
+            runbook: docs/phase10/runbooks/deployment-unavailable.md
+
+    - name: platform.autoscaler
+      rules:
+        - alert: PlatformClusterAutoscalerDown
+          expr: up{job="aws-cluster-autoscaler"} == 0
+          for: 10m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: Cluster Autoscaler scrape failed
+            runbook: docs/phase10/runbooks/node-not-ready.md
+        - alert: PlatformClusterAutoscalerErrors
+          expr: increase(cluster_autoscaler_errors_total[15m]) > 0
+          for: 15m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: Cluster Autoscaler reported errors
+            description: Error increase {{ $value }}.
+            runbook: docs/phase10/runbooks/node-not-ready.md
+        - alert: PlatformUnschedulablePods
+          expr: cluster_autoscaler_unschedulable_pods_count > 0
+          for: 20m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: Unschedulable pods while autoscaler is running
+            description: Count {{ $value }}.
+            runbook: docs/phase10/runbooks/node-not-ready.md

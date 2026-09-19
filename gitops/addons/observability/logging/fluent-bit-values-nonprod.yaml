@@ -1,0 +1,11 @@
+# Overlay for eks-nonprod. Existing log group retention 30d (Terraform).
+config:
+  outputs: |
+    [OUTPUT]
+        Name cloudwatch_logs
+        Match kube.*
+        region us-east-1
+        log_group_name /eks/eks-nonprod/application
+        log_stream_prefix nonprod-
+        auto_create_group false
+        workers 1

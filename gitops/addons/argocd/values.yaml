@@ -1,0 +1,29 @@
+# Hub on eks-nonprod. Installed 2026-09-08: chart 10.8.2 / appVersion v3.5.2.
+# Hub on eks-nonprod managing cluster-nonprod and cluster-prod.
+global:
+  domain: "" # BASE DOMAIN REQUIRES OPERATOR DECISION
+configs:
+  cm:
+    timeout.reconciliation: 180s
+  params:
+    server.insecure: true
+controller:
+  replicas: 1
+  serviceAccount:
+    annotations: {}
+    # Set at install: eks.amazonaws.com/role-arn = terraform output argocd_hub_role_arn
+server:
+  replicas: 1
+  ingress:
+    enabled: false
+  service:
+    type: ClusterIP
+  serviceAccount:
+    annotations: {}
+repoServer:
+  replicas: 1
+applicationSet:
+  replicas: 1
+notifications:
+  enabled: false
+# Cost-aware: single hub. Do not install a second Argo CD on eks-prod unless operator requires isolation.

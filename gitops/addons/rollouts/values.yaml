@@ -1,0 +1,13 @@
+# Revalidated 2026-09-07: upstream argo-helm current is 2.43.0 / appVersion v1.10.0.
+# Chart: argo-rollouts 2.43.0  controller appVersion: v1.10.0
+controller:
+  image:
+    tag: v1.10.0
+  # Git desired state: 1 on nonprod Helm values. Prod overlay: values-prod.yaml replicas=2
+  # (matches live eks-prod). Do not helm-upgrade nonprod to 2 in MODE B.
+  replicas: 1
+dashboard:
+  enabled: false
+notifications:
+  enabled: true
+installCRDs: true

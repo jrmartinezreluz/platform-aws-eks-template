@@ -1,0 +1,196 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-traefik
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    platform.example/phase: "10C"
+  annotations:
+    grafana_folder: Platform
+data:
+  traefik.json: |-
+    {
+      "uid": "platform-traefik",
+      "title": "Platform / Traefik Ingress",
+      "tags": [
+        "arkhadia",
+        "phase10c"
+      ],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "editable": false,
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "type": "datasource",
+            "query": "prometheus",
+            "current": {
+              "text": "Prometheus",
+              "value": "prometheus"
+            },
+            "refresh": 1,
+            "includeAll": false,
+            "options": [],
+            "regex": ""
+          },
+          {
+            "name": "cluster",
+            "type": "query",
+            "datasource": "$datasource",
+            "definition": "label_values(up, cluster)",
+            "query": {
+              "query": "label_values(up, cluster)",
+              "refId": "cluster"
+            },
+            "refresh": 1,
+            "includeAll": true,
+            "multi": true,
+            "allValue": ".*",
+            "current": {
+              "text": "All",
+              "value": "$__all"
+            },
+            "options": [],
+            "regex": ""
+          }
+        ]
+      },
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "text",
+          "title": "Environment",
+          "gridPos": {
+            "h": 3,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "options": {
+            "mode": "markdown",
+            "content": "**This Grafana scrapes the local cluster only.** Open Grafana on **eks-nonprod** or **eks-prod** via private kube context / VPN. Prometheus `cluster` / `environment` externalLabels are set in 10C overlays. Dashboard `platform-traefik`."
+          }
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "Requests by code",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 3
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "targets": [
+            {
+              "expr": "sum by (code) (rate(traefik_service_requests_total{cluster=~\"$cluster\"}[5m]))",
+              "refId": "A",
+              "legendFormat": "{{code}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            }
+          }
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Request duration p95",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 3
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(traefik_service_request_duration_seconds_bucket{cluster=~\"$cluster\"}[5m])))",
+              "refId": "A",
+              "legendFormat": "p95"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            }
+          }
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Open connections",
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 11
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "targets": [
+            {
+              "expr": "sum(traefik_entrypoint_open_connections{cluster=~\"$cluster\"}) or vector(0)",
+              "refId": "A",
+              "legendFormat": "open"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            }
+          }
+        }
+      ],
+      "annotations": {
+        "list": []
+      },
+      "refresh": "1m"
+    }

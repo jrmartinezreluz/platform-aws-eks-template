@@ -1,0 +1,233 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-node-capacity
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    platform.example/phase: "10C"
+  annotations:
+    grafana_folder: Platform
+data:
+  node-capacity.json: |-
+    {
+      "uid": "platform-nodes",
+      "title": "Platform / Node Capacity",
+      "tags": [
+        "arkhadia",
+        "phase10c"
+      ],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "editable": false,
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "type": "datasource",
+            "query": "prometheus",
+            "current": {
+              "text": "Prometheus",
+              "value": "prometheus"
+            },
+            "refresh": 1,
+            "includeAll": false,
+            "options": [],
+            "regex": ""
+          },
+          {
+            "name": "cluster",
+            "type": "query",
+            "datasource": "$datasource",
+            "definition": "label_values(up, cluster)",
+            "query": {
+              "query": "label_values(up, cluster)",
+              "refId": "cluster"
+            },
+            "refresh": 1,
+            "includeAll": true,
+            "multi": true,
+            "allValue": ".*",
+            "current": {
+              "text": "All",
+              "value": "$__all"
+            },
+            "options": [],
+            "regex": ""
+          }
+        ]
+      },
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "text",
+          "title": "Environment",
+          "gridPos": {
+            "h": 3,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "options": {
+            "mode": "markdown",
+            "content": "**This Grafana scrapes the local cluster only.** Open Grafana on **eks-nonprod** or **eks-prod** via private kube context / VPN. Prometheus `cluster` / `environment` externalLabels are set in 10C overlays. Dashboard `platform-nodes`."
+          }
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "CPU busy",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 3
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "targets": [
+            {
+              "expr": "1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\",cluster=~\"$cluster\"}[5m]))",
+              "refId": "A",
+              "legendFormat": "{{instance}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            }
+          }
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Memory available ratio",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 3
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "targets": [
+            {
+              "expr": "node_memory_MemAvailable_bytes{cluster=~\"$cluster\"} / node_memory_MemTotal_bytes{cluster=~\"$cluster\"}",
+              "refId": "A",
+              "legendFormat": "{{instance}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            }
+          }
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Root FS available ratio",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 11
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "targets": [
+            {
+              "expr": "node_filesystem_avail_bytes{mountpoint=\"/\",cluster=~\"$cluster\"} / node_filesystem_size_bytes{mountpoint=\"/\",cluster=~\"$cluster\"}",
+              "refId": "A",
+              "legendFormat": "{{instance}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            }
+          }
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Disk IO utilization",
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 11
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "targets": [
+            {
+              "expr": "rate(node_disk_io_time_seconds_total{cluster=~\"$cluster\"}[5m])",
+              "refId": "A",
+              "legendFormat": "{{instance}} {{device}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            }
+          }
+        }
+      ],
+      "annotations": {
+        "list": []
+      },
+      "refresh": "1m"
+    }

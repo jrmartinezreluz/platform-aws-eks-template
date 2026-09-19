@@ -1,0 +1,91 @@
+# ServiceMonitors must carry release=kube-prometheus-stack (Prometheus CR selector).
+# Metrics Services remain ClusterIP.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: platform-traefik
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    platform.example/phase: "10C"
+spec:
+  namespaceSelector:
+    matchNames:
+      - traefik
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+      app.kubernetes.io/component: metrics
+  jobLabel: app.kubernetes.io/name
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: platform-cert-manager
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    platform.example/phase: "10C"
+spec:
+  namespaceSelector:
+    matchNames:
+      - cert-manager
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cert-manager
+      app.kubernetes.io/component: controller
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: platform-external-secrets
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    platform.example/phase: "10C"
+spec:
+  namespaceSelector:
+    matchNames:
+      - external-secrets
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: external-secrets
+      app.kubernetes.io/component: metrics
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: platform-cluster-autoscaler
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    platform.example/phase: "10C"
+spec:
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: cluster-autoscaler
+      app.kubernetes.io/name: aws-cluster-autoscaler
+  jobLabel: app.kubernetes.io/name
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

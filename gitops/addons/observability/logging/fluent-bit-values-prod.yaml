@@ -1,0 +1,11 @@
+# Overlay for eks-prod. Existing log group retention 90d (Terraform). Do not install until nonprod validation.
+config:
+  outputs: |
+    [OUTPUT]
+        Name cloudwatch_logs
+        Match kube.*
+        region us-east-1
+        log_group_name /eks/eks-prod/application
+        log_stream_prefix prod-
+        auto_create_group false
+        workers 1

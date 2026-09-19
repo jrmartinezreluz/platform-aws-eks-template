@@ -1,0 +1,35 @@
+# PolicyExceptions live cluster-wide (features.policyExceptions.namespace: "*").
+# NP proof workloads in security-validation must keep using registry.k8s.io/e2e-test-images/agnhost.
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: security-validation-np-proof
+  namespace: security-validation
+  labels:
+    platform.example/phase: "10D"
+spec:
+  exceptions:
+    - policyName: enforce-disallow-latest-tag
+      ruleNames: [latest-tag]
+    - policyName: enforce-approved-application-registry
+      ruleNames: [registry]
+    - policyName: enforce-require-image-digest
+      ruleNames: [digest]
+    - policyName: enforce-signed-application-images
+      ruleNames: [verify-cosign]
+    - policyName: audit-require-image-digest
+      ruleNames: [digest]
+    - policyName: audit-disallow-latest-tag
+      ruleNames: [latest-tag]
+  match:
+    any:
+      - resources:
+          kinds: [Pod, ReplicaSet, Deployment]
+          namespaces: [security-validation]
+          names:
+            - client
+            - client-*
+            - allowed-server
+            - allowed-server-*
+            - blocked-server
+            - blocked-server-*

@@ -1,0 +1,3 @@
+# Prod overlay. Live eks-prod controller replicas=2 (10A drift vs values.yaml=1).
+controller:
+  replicas: 2

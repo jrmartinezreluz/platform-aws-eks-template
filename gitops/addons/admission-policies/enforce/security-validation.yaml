@@ -1,0 +1,233 @@
+# TIER 1/2/3 enforce — security-validation only. NP proof pods excepted.
+# Signed-image rule requires Cosign key-based signatures (Rekor/tlog disabled).
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-disallow-latest-tag
+  labels:
+    platform.example/phase: "10D"
+    platform.example/tier: "1"
+spec:
+  validationFailureAction: Enforce
+  background: false
+  admission: true
+  rules:
+    - name: latest-tag
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [security-validation]
+      exclude:
+        any:
+          - resources:
+              names: [client, allowed-server, blocked-server]
+      validate:
+        message: ":latest and untagged images are denied in security-validation."
+        foreach:
+          - list: request.object.spec.[containers, initContainers, ephemeralContainers][]
+            deny:
+              conditions:
+                any:
+                  - key: "{{ regex_match('.*:latest$', element.image) }}"
+                    operator: Equals
+                    value: true
+                  - key: "{{ regex_match('^[^:@]+$', element.image) }}"
+                    operator: Equals
+                    value: true
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-approved-application-registry
+  labels:
+    platform.example/phase: "10D"
+    platform.example/tier: "1"
+spec:
+  validationFailureAction: Enforce
+  background: false
+  admission: true
+  rules:
+    - name: registry
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [security-validation]
+      exclude:
+        any:
+          - resources:
+              names: [client, allowed-server, blocked-server]
+      validate:
+        message: Only canonical ECR application/test images (or registry.k8s.io test images) are admitted here.
+        foreach:
+          - list: request.object.spec.[containers, initContainers, ephemeralContainers][]
+            deny:
+              conditions:
+                all:
+                  - key: "{{ regex_match('.*\\.dkr\\.ecr\\.us-east-1\\.amazonaws.com/(hospitality-booking|enterprise-erp|workflow-automation|platform)/.*', element.image) }}"
+                    operator: Equals
+                    value: false
+                  - key: "{{ regex_match('^registry\\.k8s\\.io/.*', element.image) }}"
+                    operator: Equals
+                    value: false
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-require-image-digest
+  labels:
+    platform.example/phase: "10D"
+    platform.example/tier: "1"
+spec:
+  validationFailureAction: Enforce
+  background: false
+  admission: true
+  rules:
+    - name: digest
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [security-validation]
+      exclude:
+        any:
+          - resources:
+              names: [client, allowed-server, blocked-server]
+      validate:
+        message: Images in security-validation (except NP proof pods) must use @sha256 digest.
+        foreach:
+          - list: request.object.spec.[containers, initContainers, ephemeralContainers][]
+            deny:
+              conditions:
+                all:
+                  - key: "{{ contains(element.image, '@sha256:') }}"
+                    operator: Equals
+                    value: false
+                  - key: "{{ regex_match('^registry\\.k8s\\.io/.*', element.image) }}"
+                    operator: Equals
+                    value: false
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-workload-security
+  labels:
+    platform.example/phase: "10D"
+    platform.example/tier: "2"
+spec:
+  validationFailureAction: Enforce
+  background: false
+  admission: true
+  rules:
+    - name: privileged
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [security-validation]
+      validate:
+        message: privileged=true is denied.
+        pattern:
+          spec:
+            containers:
+              - =(securityContext):
+                  =(privileged): false
+    - name: host-namespaces
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [security-validation]
+      validate:
+        message: hostNetwork/hostPID/hostIPC are denied.
+        pattern:
+          spec:
+            =(hostNetwork): false
+            =(hostPID): false
+            =(hostIPC): false
+    - name: no-hostpath
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [security-validation]
+      validate:
+        message: hostPath is denied in security-validation.
+        pattern:
+          spec:
+            =(volumes):
+              - X(hostPath): "null"
+    - name: no-priv-esc
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [security-validation]
+      validate:
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  allowPrivilegeEscalation: false
+    - name: no-loadbalancer
+      match:
+        any:
+          - resources:
+              kinds: [Service]
+              namespaces: [security-validation]
+      validate:
+        message: LoadBalancer Services are denied in security-validation.
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.type }}"
+                operator: Equals
+                value: LoadBalancer
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-signed-application-images
+  labels:
+    platform.example/phase: "10D"
+    platform.example/tier: "3"
+spec:
+  validationFailureAction: Enforce
+  background: false
+  admission: true
+  webhookTimeoutSeconds: 20
+  failurePolicy: Fail
+  rules:
+    - name: verify-cosign
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              namespaces: [security-validation]
+      exclude:
+        any:
+          - resources:
+              names: [client, allowed-server, blocked-server]
+      verifyImages:
+        - imageReferences:
+            - "*.dkr.ecr.us-east-1.amazonaws.com/platform/admission-test*"
+            - "*.dkr.ecr.us-east-1.amazonaws.com/hospitality-booking/*"
+            - "*.dkr.ecr.us-east-1.amazonaws.com/enterprise-erp/*"
+            - "*.dkr.ecr.us-east-1.amazonaws.com/workflow-automation/*"
+          attestors:
+            - count: 1
+              entries:
+                - keys:
+                    publicKeys: |-
+                      -----BEGIN PUBLIC KEY-----
+                      REPLACE_WITH_YOUR_COSIGN_PUBLIC_KEY
+                      -----END PUBLIC KEY-----
+                    rekor:
+                      ignoreTlog: true
+                    ctlog:
+                      ignoreSCT: true
+          mutateDigest: false
+          verifyDigest: true
+          required: true
+          type: Cosign

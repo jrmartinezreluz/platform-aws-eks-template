@@ -1,0 +1,16 @@
+# Design-only. Managed Node Groups autoscaling — not Karpenter.
+# Karpenter belongs to a separate platform repository later.
+autoDiscovery:
+  clusterName: eks-nonprod
+awsRegion: us-east-1
+replicaCount: 1
+rbac:
+  serviceAccount:
+    create: true
+    name: cluster-autoscaler
+extraArgs:
+  balance-similar-node-groups: true
+  skip-nodes-with-system-pods: false
+# Identity: IRSA exception (SCP p-m8ajqk1n blocks Pod Identity). Annotate SA at install:
+#   eks.amazonaws.com/role-arn: <terraform output cluster_autoscaler_role_arn>
+# Pin: chart 9.59.0 / appVersion 1.35.0 (matches Kubernetes 1.35). Do not use Karpenter.

@@ -1,0 +1,53 @@
+# fluent/fluent-bit chart 0.58.2 / app 5.1.2. DaemonSet in kube-system (PSS unlabeled).
+# Platform namespaces only. Do not ship secrets, tokens, or Authorization headers.
+# IRSA: set serviceAccount.annotations.eks.amazonaws.com/role-arn at install.
+kind: DaemonSet
+testFramework:
+  enabled: false
+serviceAccount:
+  create: true
+  name: fluent-bit
+rbac:
+  create: true
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+tolerations:
+  - operator: Exists
+config:
+  service: |
+    [SERVICE]
+        Daemon Off
+        Flush 5
+        Log_Level info
+        Parsers_File /fluent-bit/etc/parsers.conf
+        HTTP_Server On
+        HTTP_Listen 0.0.0.0
+        HTTP_Port 2020
+        Health_Check On
+  inputs: |
+    [INPUT]
+        Name tail
+        Path /var/log/containers/*.log
+        multiline.parser cri
+        Tag kube.*
+        Mem_Buf_Limit 16MB
+        Skip_Long_Lines On
+        Refresh_Interval 10
+  filters: |
+    [FILTER]
+        Name kubernetes
+        Match kube.*
+        Merge_Log On
+        Keep_Log Off
+        K8S-Logging.Parser On
+        K8S-Logging.Exclude On
+        Labels Off
+        Annotations Off
+    [FILTER]
+        Name grep
+        Match kube.*
+        Regex $kubernetes['namespace_name'] ^(kube-system|monitoring|argocd|traefik|cert-manager|external-secrets|argo-rollouts|kyverno|velero)$

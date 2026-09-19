@@ -1,0 +1,7 @@
+# Optional: after the first local apply, migrate bootstrap state into this bucket.
+# Chicken-egg: first apply uses local state.
+bucket       = "REPLACE-AFTER-FIRST-APPLY"
+key          = "platform/eks/bootstrap/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true

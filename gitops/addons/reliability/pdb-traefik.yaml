@@ -1,0 +1,15 @@
+# Bootstrap PDB for Traefik (2 replicas). 10A: apply with kubectl until Helm/GitOps adopts the release.
+# Selector matches chart labels app.kubernetes.io/name=traefik.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: traefik
+  namespace: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/part-of: platform
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik

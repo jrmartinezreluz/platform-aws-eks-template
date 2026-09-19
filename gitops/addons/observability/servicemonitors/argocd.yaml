@@ -1,0 +1,29 @@
+# Apply on cluster-nonprod only (Argo hub).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: platform-argocd
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    platform.example/phase: "10C"
+    platform.example/scope: nonprod-hub
+spec:
+  namespaceSelector:
+    matchNames:
+      - argocd
+  selector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - argocd-server-metrics
+          - argocd-repo-server-metrics
+          - argocd-application-controller-metrics
+          - argocd-applicationset-controller-metrics
+  jobLabel: app.kubernetes.io/name
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

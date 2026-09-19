@@ -1,0 +1,20 @@
+# Placeholder only. Do not apply until a private path exists from the Argo CD hub
+# (nonprod VPC, VPN, SSM bastion, or 09B.2 WireGuard). Do not open eks-prod publicly.
+# Do not store personal kubeconfig or long-lived tokens in Git.
+#
+# When registering, use a service account on eks-prod plus short-lived AWS IAM
+# authentication (aws eks get-token / exec), destination name cluster-prod.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster-prod
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: cluster
+    cluster-role: prod
+type: Opaque
+stringData:
+  name: cluster-prod
+  server: REPLACE-WITH-EKS-PROD-PRIVATE-ENDPOINT
+  config: |
+    {"awsAuthConfig":{"clusterName":"eks-prod","roleARN":"REPLACE-ARGO-HUB-ROLE"},"tlsClientConfig":{"insecure":false}}

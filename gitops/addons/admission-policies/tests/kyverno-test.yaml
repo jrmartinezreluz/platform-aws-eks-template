@@ -1,0 +1,64 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: security-validation-enforce
+policies:
+  - ../enforce/security-validation.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: enforce-disallow-latest-tag
+    rule: latest-tag
+    resources: [deny-latest]
+    kind: Pod
+    result: fail
+  - policy: enforce-require-image-digest
+    rule: digest
+    resources: [deny-mutable-tag]
+    kind: Pod
+    result: fail
+  - policy: enforce-disallow-latest-tag
+    rule: latest-tag
+    resources: [deny-mutable-tag]
+    kind: Pod
+    result: pass
+  - policy: enforce-approved-application-registry
+    rule: registry
+    resources: [deny-unapproved-registry]
+    kind: Pod
+    result: fail
+  - policy: enforce-workload-security
+    rule: privileged
+    resources: [deny-privileged]
+    kind: Pod
+    result: fail
+  - policy: enforce-workload-security
+    rule: no-hostpath
+    resources: [deny-hostpath]
+    kind: Pod
+    result: fail
+  - policy: enforce-approved-application-registry
+    rule: registry
+    resources: [pass-digest-registry]
+    kind: Pod
+    result: pass
+  - policy: enforce-require-image-digest
+    rule: digest
+    resources: [pass-digest-registry]
+    kind: Pod
+    result: pass
+  - policy: enforce-disallow-latest-tag
+    rule: latest-tag
+    resources: [pass-digest-registry]
+    kind: Pod
+    result: pass
+  - policy: enforce-workload-security
+    rule: privileged
+    resources: [pass-digest-registry]
+    kind: Pod
+    result: pass
+  - policy: enforce-workload-security
+    rule: no-loadbalancer
+    resources: [deny-lb]
+    kind: Service
+    result: fail

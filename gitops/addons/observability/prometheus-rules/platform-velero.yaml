@@ -1,0 +1,30 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platform-velero
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    platform.example/phase: "10E"
+spec:
+  groups:
+    - name: platform.velero
+      rules:
+        - alert: PlatformVeleroBackupFailed
+          expr: increase(velero_backup_failure_total[6h]) > 0
+          for: 15m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: Velero backup failures in the last 6h
+            runbook: docs/phase10/runbooks/backup-job-failure.md
+        - alert: PlatformVeleroUnavailable
+          expr: kube_deployment_status_replicas_available{namespace="velero",deployment="velero"} < 1
+          for: 15m
+          labels:
+            severity: page
+            team: platform
+          annotations:
+            summary: Velero controller has no available replicas
+            runbook: docs/phase10/runbooks/backup-job-failure.md

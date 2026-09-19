@@ -1,0 +1,6 @@
+# Overlay for helm upgrade --reuse-values --version 90.0.0
+prometheus:
+  prometheusSpec:
+    externalLabels:
+      cluster: eks-prod
+      environment: prod

@@ -1,0 +1,15 @@
+# Apply only where argo-rollouts replicas >= 2 (currently eks-prod).
+# Do not apply to single-replica controllers (voluntary disruption would be blocked at 0).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: argo-rollouts
+  namespace: argo-rollouts
+  labels:
+    app.kubernetes.io/name: argo-rollouts
+    app.kubernetes.io/part-of: platform
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argo-rollouts

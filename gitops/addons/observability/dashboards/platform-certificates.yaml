@@ -1,0 +1,236 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-certificates
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+    platform.example/phase: "10C"
+  annotations:
+    grafana_folder: Platform
+data:
+  certificates.json: |-
+    {
+      "uid": "platform-certs",
+      "title": "Platform / Certificates",
+      "tags": [
+        "arkhadia",
+        "phase10c"
+      ],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "editable": false,
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "type": "datasource",
+            "query": "prometheus",
+            "current": {
+              "text": "Prometheus",
+              "value": "prometheus"
+            },
+            "refresh": 1,
+            "includeAll": false,
+            "options": [],
+            "regex": ""
+          },
+          {
+            "name": "cluster",
+            "type": "query",
+            "datasource": "$datasource",
+            "definition": "label_values(up, cluster)",
+            "query": {
+              "query": "label_values(up, cluster)",
+              "refId": "cluster"
+            },
+            "refresh": 1,
+            "includeAll": true,
+            "multi": true,
+            "allValue": ".*",
+            "current": {
+              "text": "All",
+              "value": "$__all"
+            },
+            "options": [],
+            "regex": ""
+          }
+        ]
+      },
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "text",
+          "title": "Environment",
+          "gridPos": {
+            "h": 3,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "options": {
+            "mode": "markdown",
+            "content": "**This Grafana scrapes the local cluster only.** Open Grafana on **eks-nonprod** or **eks-prod** via private kube context / VPN. Prometheus `cluster` / `environment` externalLabels are set in 10C overlays. Dashboard `platform-certs`."
+          }
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Certificates Ready",
+          "gridPos": {
+            "h": 4,
+            "w": 8,
+            "x": 0,
+            "y": 3
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "targets": [
+            {
+              "expr": "count(certmanager_certificate_ready_status{condition=\"True\"} == 1) or vector(0)",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Not Ready",
+          "gridPos": {
+            "h": 4,
+            "w": 8,
+            "x": 8,
+            "y": 3
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "targets": [
+            {
+              "expr": "count(certmanager_certificate_ready_status{condition=\"False\"} == 1) or vector(0)",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Days to nearest expiry",
+          "gridPos": {
+            "h": 4,
+            "w": 8,
+            "x": 16,
+            "y": 3
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "targets": [
+            {
+              "expr": "min((certmanager_certificate_expiration_timestamp_seconds - time()) / 86400) or vector(0)",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "none"
+          }
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Days to expiry",
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 7
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$datasource"
+          },
+          "targets": [
+            {
+              "expr": "(certmanager_certificate_expiration_timestamp_seconds - time()) / 86400",
+              "refId": "A",
+              "legendFormat": "{{namespace}}/{{name}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            }
+          }
+        }
+      ],
+      "annotations": {
+        "list": []
+      },
+      "refresh": "1m"
+    }

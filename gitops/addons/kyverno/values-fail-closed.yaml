@@ -1,0 +1,5 @@
+# After admission-controller 2/2 Ready, helm upgrade --reuse-values with this overlay.
+# Webhook failurePolicy becomes Fail (Kyverno default when forceFailurePolicyIgnore is false).
+features:
+  forceFailurePolicyIgnore:
+    enabled: false

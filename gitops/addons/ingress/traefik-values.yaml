@@ -1,0 +1,20 @@
+# Application IngressClass remains portable (not cluster-vendor specific).
+# Chart pin at install: traefik/traefik 41.5.0 / appVersion v3.7.13
+# Pattern: Traefik Service type LoadBalancer internal NLB (in-tree/CCM).
+# AWS Load Balancer Controller is NOT installed (avoid overlapping ingress ownership).
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+  name: traefik
+deployment:
+  replicas: 2
+podDisruptionBudget:
+  enabled: true
+  maxUnavailable: 1
+service:
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internal
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+  spec:
+    type: LoadBalancer

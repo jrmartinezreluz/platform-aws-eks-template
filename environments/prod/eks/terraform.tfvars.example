@@ -1,0 +1,19 @@
+aws_region         = "us-east-1"
+kubernetes_version = "1.35"
+vpc_id             = "vpc-REPLACE-AFTER-NETWORK-APPLY"
+private_subnet_ids = [
+  "subnet-REPLACE-1",
+  "subnet-REPLACE-2",
+  "subnet-REPLACE-3",
+]
+endpoint_public_access       = false
+endpoint_public_access_cidrs = []
+bootstrap_principal_arns     = []
+base_domain                  = ""
+enable_efs                   = true
+enable_backup                = false
+create_github_oidc_provider  = false
+# Copy ARNs from nonprod registry outputs after that stack exists.
+ecr_repository_arns          = []
+github_org                   = "example-org"
+github_repos                 = ["workflow-github-actions-template", "example-app"]

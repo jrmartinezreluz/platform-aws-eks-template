@@ -1,0 +1,104 @@
+# Kyverno Helm chart 3.9.1 / appVersion v1.19.1
+# Compatibility: Kyverno 1.19 supports Kubernetes 1.33–1.35 (kyverno.io/docs/installation/releases/).
+# Do not use chart 3.9.0 / v1.19.0 (PolicyException matchConditions regression).
+# Install: helm upgrade --install kyverno kyverno/kyverno -n kyverno --create-namespace --version 3.9.1 -f values.yaml
+# ClusterIP only. No public Service. Namespace stays unlabeled (PSS exception like kube-system).
+# Do not default-deny this namespace (10B platform mapping).
+
+crds:
+  install: true
+
+openreports:
+  enabled: false
+
+reportsServer:
+  enabled: false
+
+features:
+  policyExceptions:
+    enabled: true
+    namespace: "*"
+  generateValidatingAdmissionPolicy:
+    enabled: false
+  generateMutatingAdmissionPolicy:
+    enabled: false
+  forceFailurePolicyIgnore:
+    # Bootstrap: Ignore if webhook pods are not Ready. Flip to false after 2/2 Ready (see values overlay).
+    enabled: true
+  tuf:
+    enabled: false
+
+config:
+  excludeKyvernoNamespace: true
+  webhooks:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - kyverno
+
+admissionController:
+  replicas: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: kube-prometheus-stack
+  rbac:
+    coreClusterRole:
+      extraResources: []
+    serviceAccount:
+      annotations: {}
+      # Set at install from terraform output kyverno_role_arn:
+      # eks.amazonaws.com/role-arn: arn:aws:iam::<account>:role/eks-<cluster>-kyverno
+  container:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 384Mi
+      limits:
+        memory: 512Mi
+
+backgroundController:
+  replicas: 1
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: kube-prometheus-stack
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+reportsController:
+  replicas: 1
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: kube-prometheus-stack
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+cleanupController:
+  enabled: true
+  replicas: 1
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: kube-prometheus-stack
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 128Mi

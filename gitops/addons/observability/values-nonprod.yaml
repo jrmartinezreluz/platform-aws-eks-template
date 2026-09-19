@@ -1,0 +1,7 @@
+# Overlay for helm upgrade --reuse-values --version 90.0.0
+# Distinguishes this Prometheus from eks-prod in queries and dashboards.
+prometheus:
+  prometheusSpec:
+    externalLabels:
+      cluster: eks-nonprod
+      environment: nonprod

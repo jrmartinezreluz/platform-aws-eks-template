@@ -1,0 +1,345 @@
+# TIER 0 — Audit only. Do not block. Exclude kube-system and kyverno.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: audit-disallow-latest-tag
+  labels:
+    platform.example/phase: "10D"
+    platform.example/tier: "0"
+  annotations:
+    policies.kyverno.io/title: Disallow latest tag
+    policies.kyverno.io/category: Supply Chain
+spec:
+  validationFailureAction: Audit
+  background: true
+  admission: true
+  rules:
+    - name: latest-tag
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno]
+      validate:
+        message: Do not use the :latest tag or an untagged image. Pin a tag or digest.
+        foreach:
+          - list: request.object.spec.[containers, initContainers, ephemeralContainers][]
+            deny:
+              conditions:
+                any:
+                  - key: "{{ regex_match('.*:latest$', element.image) }}"
+                    operator: Equals
+                    value: true
+                  - key: "{{ regex_match('^[^:@]+$', element.image) }}"
+                    operator: Equals
+                    value: true
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: audit-require-image-digest
+  labels:
+    platform.example/phase: "10D"
+    platform.example/tier: "0"
+spec:
+  validationFailureAction: Audit
+  background: true
+  admission: true
+  rules:
+    - name: digest
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno]
+      validate:
+        message: Application images should use an immutable digest (image@sha256:...).
+        foreach:
+          - list: request.object.spec.[containers, initContainers, ephemeralContainers][]
+            deny:
+              conditions:
+                all:
+                  - key: "{{ contains(element.image, '@sha256:') }}"
+                    operator: Equals
+                    value: false
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: audit-approved-registries
+  labels:
+    platform.example/phase: "10D"
+    platform.example/tier: "0"
+spec:
+  validationFailureAction: Audit
+  background: true
+  admission: true
+  rules:
+    - name: registry
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno]
+      validate:
+        message: Image registry is not in APPLICATION or PLATFORM approved classes.
+        foreach:
+          - list: request.object.spec.[containers, initContainers, ephemeralContainers][]
+            deny:
+              conditions:
+                all:
+                  - key: "{{ regex_match('.*\\.dkr\\.ecr\\.us-east-1\\.amazonaws.com/(hospitality-booking|enterprise-erp|workflow-automation|platform)/.*', element.image) }}"
+                    operator: Equals
+                    value: false
+                  - key: "{{ regex_match('^602401143452\\.dkr\\.ecr\\.us-east-1\\.amazonaws.com/.*', element.image) }}"
+                    operator: Equals
+                    value: false
+                  - key: "{{ regex_match('^(registry\\.k8s\\.io|quay\\.io|ghcr\\.io|cr\\.fluentbit\\.io|ecr-public\\.aws\\.com|docker\\.io/grafana|docker\\.io/traefik)/?.*', element.image) }}"
+                    operator: Equals
+                    value: false
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: audit-workload-security
+  labels:
+    platform.example/phase: "10D"
+    platform.example/tier: "0"
+spec:
+  validationFailureAction: Audit
+  background: true
+  admission: true
+  rules:
+    - name: privileged
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno]
+      validate:
+        message: privileged containers are not allowed for application workloads.
+        pattern:
+          spec:
+            =(initContainers):
+              - =(securityContext):
+                  =(privileged): false
+            =(ephemeralContainers):
+              - =(securityContext):
+                  =(privileged): false
+            containers:
+              - =(securityContext):
+                  =(privileged): false
+    - name: host-namespaces
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno]
+      validate:
+        message: hostNetwork/hostPID/hostIPC are not allowed for application workloads.
+        pattern:
+          spec:
+            =(hostNetwork): false
+            =(hostPID): false
+            =(hostIPC): false
+    - name: hostpath
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno]
+      validate:
+        message: hostPath volumes are not allowed for application workloads.
+        pattern:
+          spec:
+            =(volumes):
+              - X(hostPath): "null"
+    - name: privilege-escalation
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno]
+      validate:
+        message: allowPrivilegeEscalation must be false.
+        pattern:
+          spec:
+            containers:
+              - =(securityContext):
+                  =(allowPrivilegeEscalation): false
+    - name: run-as-non-root
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno]
+      validate:
+        message: runAsNonRoot should be true (pod or container).
+        anyPattern:
+          - spec:
+              securityContext:
+                runAsNonRoot: true
+          - spec:
+              containers:
+                - securityContext:
+                    runAsNonRoot: true
+    - name: seccomp
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno]
+      validate:
+        message: seccompProfile.type should be RuntimeDefault or Localhost.
+        anyPattern:
+          - spec:
+              securityContext:
+                seccompProfile:
+                  type: RuntimeDefault
+          - spec:
+              securityContext:
+                seccompProfile:
+                  type: Localhost
+          - spec:
+              containers:
+                - securityContext:
+                    seccompProfile:
+                      type: RuntimeDefault
+    - name: drop-capabilities
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno]
+      validate:
+        message: containers should drop ALL capabilities.
+        pattern:
+          spec:
+            containers:
+              - =(securityContext):
+                  =(capabilities):
+                    =(drop): [ALL]
+    - name: automount-sa
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno]
+      validate:
+        message: automountServiceAccountToken should be false unless required.
+        pattern:
+          spec:
+            =(automountServiceAccountToken): false
+    - name: cpu-memory-requests
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno]
+      validate:
+        message: CPU and memory requests should be set.
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests:
+                    cpu: "?*"
+                    memory: "?*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: audit-service-exposure
+  labels:
+    platform.example/phase: "10D"
+    platform.example/tier: "0"
+spec:
+  validationFailureAction: Audit
+  background: true
+  admission: true
+  rules:
+    - name: no-loadbalancer
+      match:
+        any:
+          - resources:
+              kinds: [Service]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno, traefik]
+      validate:
+        message: Service type LoadBalancer is restricted (Traefik internal NLB is the platform exception).
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.type }}"
+                operator: Equals
+                value: LoadBalancer
+    - name: no-nodeport
+      match:
+        any:
+          - resources:
+              kinds: [Service]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno, traefik]
+      validate:
+        message: Service type NodePort is restricted.
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.type }}"
+                operator: Equals
+                value: NodePort
+    - name: required-labels
+      match:
+        any:
+          - resources:
+              kinds: [Deployment, StatefulSet, DaemonSet]
+      exclude:
+        any:
+          - resources:
+              namespaces: [kube-system, kyverno]
+      validate:
+        message: Workloads should set app.kubernetes.io/name.
+        pattern:
+          metadata:
+            labels:
+              app.kubernetes.io/name: "?*"

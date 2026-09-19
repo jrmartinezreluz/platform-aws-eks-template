@@ -1,0 +1,19 @@
+aws_region         = "us-east-1"
+kubernetes_version = "1.35"
+vpc_id             = "vpc-REPLACE-AFTER-NETWORK-APPLY"
+private_subnet_ids = [
+  "subnet-REPLACE-1",
+  "subnet-REPLACE-2",
+  "subnet-REPLACE-3",
+]
+# Private API only. Operator access is WireGuard → vpc-access, not a public CIDR.
+endpoint_public_access       = false
+endpoint_public_access_cidrs = []
+bootstrap_principal_arns     = []
+base_domain                  = ""
+enable_efs                   = false
+# Sandbox SSO AllowSafePassRole does not include backup.amazonaws.com / vault KMS.
+enable_backup                = false
+create_github_oidc_provider  = false
+github_org                   = "example-org"
+github_repos                 = ["workflow-github-actions-template", "example-app"]

@@ -1,0 +1,40 @@
+# ClusterIP-only metrics. Do not add metrics ports to the Traefik NLB.
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik-metrics
+  namespace: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/component: metrics
+    platform.example/phase: "10C"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: traefik-traefik
+    app.kubernetes.io/name: traefik
+  ports:
+    - name: metrics
+      port: 9100
+      targetPort: metrics
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-secrets-metrics
+  namespace: external-secrets
+  labels:
+    app.kubernetes.io/name: external-secrets
+    app.kubernetes.io/component: metrics
+    platform.example/phase: "10C"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: external-secrets
+    app.kubernetes.io/name: external-secrets
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: metrics
+      protocol: TCP

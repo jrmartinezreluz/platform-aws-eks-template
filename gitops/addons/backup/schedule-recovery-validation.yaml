@@ -1,0 +1,25 @@
+# Daily Velero schedule. IncludeNamespaces set at apply for recovery-validation plus this file's platform-safe defaults.
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: daily-recovery-validation
+  namespace: velero
+  labels:
+    platform.example/phase: "10E"
+spec:
+  schedule: "0 5 * * *"
+  template:
+    includedNamespaces:
+      - recovery-validation
+    snapshotVolumes: true
+    ttl: 336h
+    csiSnapshotTimeout: 10m
+    includedResources: []
+    excludedResources:
+      - events
+      - events.events.k8s.io
+      - backups.velero.io
+      - restores.velero.io
+      - resticrepositories.velero.io
+      - csinodes.storage.k8s.io
+      - volumeattachments.storage.k8s.io

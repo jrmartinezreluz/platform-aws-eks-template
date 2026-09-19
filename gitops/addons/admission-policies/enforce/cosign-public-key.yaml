@@ -1,0 +1,14 @@
+# Example Cosign public-key ConfigMap.
+# Generate a key pair for YOUR environment (`cosign generate-key-pair`).
+# Do not reuse operational signing material from another deployment.
+# Store the private key in YOUR secret manager; never commit it.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cosign-public-key
+  namespace: kyverno
+data:
+  cosign.pub: |
+    -----BEGIN PUBLIC KEY-----
+    REPLACE_WITH_YOUR_COSIGN_PUBLIC_KEY
+    -----END PUBLIC KEY-----

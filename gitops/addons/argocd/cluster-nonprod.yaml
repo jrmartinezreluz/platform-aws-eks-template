@@ -1,0 +1,17 @@
+# Logical identity: eks-nonprod → cluster-nonprod.
+# Same API as in-cluster (https://kubernetes.default.svc). Argo keys clusters by server URL;
+# this secret names that destination. Do not store personal kubeconfigs in Git.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cluster-nonprod
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: cluster
+    cluster-role: nonprod
+type: Opaque
+stringData:
+  name: cluster-nonprod
+  server: https://kubernetes.default.svc
+  config: |
+    {"tlsClientConfig":{"insecure":false}}

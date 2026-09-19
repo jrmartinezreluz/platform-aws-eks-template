@@ -1,0 +1,69 @@
+# Argo CD hub lives only on eks-nonprod. Apply this file to cluster-nonprod only.
+# v3.5.2 with current Helm values does not emit argocd_app_info / argocd_cluster_*.
+# Rules stay loaded; they fire once those series exist. Controller/repo up{} still pages.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platform-argocd
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    platform.example/owner: platform
+    platform.example/phase: "10C"
+    platform.example/scope: nonprod-hub
+spec:
+  groups:
+    - name: platform.argocd
+      rules:
+        - alert: PlatformArgoAppDegraded
+          expr: |
+            argocd_app_info{health_status=~"Degraded|Missing"} == 1
+          for: 15m
+          labels:
+            severity: page
+            team: platform
+          annotations:
+            summary: Argo CD application {{ $labels.name }} is {{ $labels.health_status }}
+            description: Dest {{ $labels.dest_server }} ns {{ $labels.dest_namespace }}.
+            runbook: docs/phase10/runbooks/argo-degraded.md
+        - alert: PlatformArgoAppOutOfSync
+          expr: argocd_app_info{sync_status="OutOfSync"} == 1
+          for: 30m
+          labels:
+            severity: ticket
+            team: platform
+          annotations:
+            summary: Argo CD application {{ $labels.name }} OutOfSync for 30m
+            description: Intentional sync windows should be shorter than this for:.
+            runbook: docs/phase10/runbooks/argo-degraded.md
+        - alert: PlatformArgoClusterProdUnreachable
+          expr: |
+            max by (name, server) (argocd_cluster_info{name="cluster-prod"}) == 0
+            or
+            max by (name, server) (argocd_cluster_connection_status{name="cluster-prod"} == 0)
+          for: 10m
+          labels:
+            severity: page
+            team: platform
+          annotations:
+            summary: Argo CD cannot reach cluster-prod
+            description: Hub on eks-nonprod lost the private path to the prod API. This is a GitOps outage for prod.
+            runbook: docs/phase10/runbooks/argo-cluster-unreachable.md
+        - alert: PlatformArgoRepoServerDown
+          expr: up{job="argocd-repo-server-metrics"} == 0
+          for: 5m
+          labels:
+            severity: page
+            team: platform
+          annotations:
+            summary: Argo CD repo-server metrics down
+            runbook: docs/phase10/runbooks/argo-degraded.md
+        - alert: PlatformArgoApplicationControllerDown
+          expr: up{job="argocd-application-controller-metrics"} == 0
+          for: 5m
+          labels:
+            severity: page
+            team: platform
+          annotations:
+            summary: Argo CD application-controller metrics down
+            runbook: docs/phase10/runbooks/argo-degraded.md
